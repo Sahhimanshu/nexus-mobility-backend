@@ -1,0 +1,279 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE TABLE tenants (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        TEXT NOT NULL,
+  code        TEXT NOT NULL UNIQUE,
+  active      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE users (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  full_name      TEXT NOT NULL,
+  email          TEXT NOT NULL UNIQUE,
+  password_hash  TEXT NOT NULL,
+  role           TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN','ADMIN','COORDINATOR','STAFF','STUDENT')),
+  active         BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE refresh_tokens (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token       VARCHAR(500) NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  revoked     BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE password_reset_tokens (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token       TEXT NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  used        BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE countries (
+  code        VARCHAR(3) PRIMARY KEY,
+  name        TEXT NOT NULL,
+  region      TEXT,
+  flag_emoji  TEXT
+);
+
+CREATE TABLE country_stats (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  country_code        VARCHAR(3) NOT NULL REFERENCES countries(code),
+  snapshot_year       INT,
+  outbound_students   INT,
+  inbound_students    INT,
+  partnership_count   INT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE partnerships (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  university_name     TEXT NOT NULL,
+  country_code        VARCHAR(3) NOT NULL REFERENCES countries(code),
+  partnership_type    TEXT,
+  status              TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('ACTIVE','PENDING','EXPIRING','EXPIRED')),
+  start_date          DATE,
+  expiry_date         DATE,
+  mou_signed          BOOLEAN NOT NULL DEFAULT FALSE,
+  renewal_alert_days  INT,
+  notes               TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE programs (
+  id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id              UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  partnership_id         UUID REFERENCES partnerships(id) ON DELETE SET NULL,
+  name                   TEXT NOT NULL,
+  type                   TEXT NOT NULL CHECK (type IN ('SEMESTER_EXCHANGE','SUMMER_SCHOOL','JOINT_DEGREE','RESEARCH_FELLOWSHIP','INTERNSHIP')),
+  partner_university     TEXT,
+  country_code           VARCHAR(3) REFERENCES countries(code),
+  seats                  INT,
+  enrolled               INT,
+  deadline               DATE,
+  duration_label         TEXT,
+  scholarship_available  BOOLEAN,
+  description            TEXT,
+  created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE students (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  full_name          TEXT NOT NULL,
+  email              TEXT NOT NULL,
+  home_university    TEXT,
+  host_university    TEXT,
+  host_country_code  VARCHAR(3) REFERENCES countries(code),
+  program_name       TEXT,
+  semester_label     TEXT,
+  gpa                NUMERIC(3,2),
+  status             TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE program_students (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  program_id  UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
+  student_id  UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (program_id, student_id)
+);
+
+CREATE TABLE column_definitions (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  module      TEXT NOT NULL CHECK (module IN ('PROGRAM','PARTNERSHIP','EVENT','VISIT')),
+  key_name    TEXT NOT NULL,
+  label       TEXT NOT NULL,
+  value_type  TEXT NOT NULL,
+  sort_order  INT,
+  visible     BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE field_definitions (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  key_name        TEXT NOT NULL,
+  label           TEXT NOT NULL,
+  input_type      TEXT NOT NULL,
+  required_field  BOOLEAN NOT NULL DEFAULT FALSE,
+  sort_order      INT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE events (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name              TEXT NOT NULL,
+  type              TEXT NOT NULL CHECK (type IN ('FAIR','ORIENTATION','WORKSHOP','WEBINAR','INFO_SESSION')),
+  event_date        DATE,
+  country_code      VARCHAR(3) REFERENCES countries(code),
+  location          TEXT,
+  host_institution  TEXT,
+  description       TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE event_participants (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id       UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  full_name      TEXT NOT NULL,
+  email          TEXT,
+  organization   TEXT,
+  role           TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE visits (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  title             TEXT NOT NULL,
+  type              TEXT NOT NULL CHECK (type IN ('DELEGATION','CAMPUS_VISIT','PARTNER_MEETING','AUDIT','CEREMONY')),
+  status            TEXT NOT NULL DEFAULT 'PLANNED' CHECK (status IN ('PLANNED','CONFIRMED','COMPLETED','CANCELLED')),
+  visit_date        DATE,
+  location          TEXT,
+  institution_name  TEXT,
+  agenda            TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE visit_participants (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  visit_id       UUID NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
+  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  full_name      TEXT NOT NULL,
+  email          TEXT,
+  organization   TEXT,
+  role           TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE documents (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  program_id         UUID REFERENCES programs(id) ON DELETE SET NULL,
+  partnership_id     UUID REFERENCES partnerships(id) ON DELETE SET NULL,
+  original_filename  TEXT NOT NULL,
+  stored_filename    TEXT NOT NULL,
+  content_type       TEXT,
+  size_bytes         BIGINT NOT NULL DEFAULT 0,
+  type               TEXT NOT NULL CHECK (type IN ('MOU','CONTRACT','AGREEMENT','POLICY','REPORT','OTHER')),
+  storage_path       TEXT NOT NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE news_items (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  category     TEXT NOT NULL CHECK (category IN ('MOBILITY','PARTNERSHIP','CAMPUS','SCHOLARSHIP','ANNOUNCEMENT')),
+  publish_date DATE,
+  source_url   TEXT,
+  summary      TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE dashboard_snapshots (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  snapshot_date       DATE NOT NULL,
+  total_programs      INT,
+  total_partnerships  INT,
+  total_events        INT,
+  total_visits        INT,
+  total_students      INT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, snapshot_date)
+);
+
+CREATE TABLE notifications (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title        TEXT NOT NULL,
+  body         TEXT,
+  level        TEXT NOT NULL DEFAULT 'INFO' CHECK (level IN ('INFO','SUCCESS','WARNING','ERROR')),
+  unread       BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE tenant_settings (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+  timezone        TEXT NOT NULL DEFAULT 'Asia/Calcutta',
+  currency        TEXT NOT NULL DEFAULT 'INR',
+  locale          TEXT NOT NULL DEFAULT 'en-IN',
+  contact_email   TEXT,
+  branding_color  TEXT DEFAULT '#0F766E',
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_users_tenant_id ON users(tenant_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_country_stats_tenant_id ON country_stats(tenant_id);
+CREATE INDEX idx_programs_tenant_id ON programs(tenant_id);
+CREATE INDEX idx_students_tenant_id ON students(tenant_id);
+CREATE INDEX idx_program_students_program_id ON program_students(program_id);
+CREATE INDEX idx_program_students_student_id ON program_students(student_id);
+CREATE INDEX idx_column_definitions_tenant_module_sort ON column_definitions(tenant_id, module, sort_order);
+CREATE INDEX idx_field_definitions_tenant_sort ON field_definitions(tenant_id, sort_order);
+CREATE INDEX idx_events_tenant_id ON events(tenant_id);
+CREATE INDEX idx_event_participants_event_id ON event_participants(event_id);
+CREATE INDEX idx_visits_tenant_id ON visits(tenant_id);
+CREATE INDEX idx_visit_participants_visit_id ON visit_participants(visit_id);
+CREATE INDEX idx_documents_tenant_id ON documents(tenant_id);
+CREATE INDEX idx_news_items_tenant_id ON news_items(tenant_id);
+CREATE INDEX idx_notifications_user_id_unread ON notifications(user_id, unread);
