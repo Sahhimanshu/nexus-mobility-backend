@@ -1,6 +1,8 @@
+BEGIN;
+
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-CREATE TABLE tenants (
+CREATE TABLE IF NOT EXISTS public.tenants (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL,
   code        TEXT NOT NULL UNIQUE,
@@ -9,9 +11,9 @@ CREATE TABLE tenants (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS public.users (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id      UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   full_name      TEXT NOT NULL,
   email          TEXT NOT NULL UNIQUE,
   password_hash  TEXT NOT NULL,
@@ -21,9 +23,9 @@ CREATE TABLE users (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS public.refresh_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   token       VARCHAR(500) NOT NULL UNIQUE,
   expires_at  TIMESTAMPTZ NOT NULL,
   revoked     BOOLEAN NOT NULL DEFAULT FALSE,
@@ -31,9 +33,9 @@ CREATE TABLE refresh_tokens (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE password_reset_tokens (
+CREATE TABLE IF NOT EXISTS public.password_reset_tokens (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   token       TEXT NOT NULL UNIQUE,
   expires_at  TIMESTAMPTZ NOT NULL,
   used        BOOLEAN NOT NULL DEFAULT FALSE,
@@ -41,17 +43,17 @@ CREATE TABLE password_reset_tokens (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE countries (
+CREATE TABLE IF NOT EXISTS public.countries (
   code        VARCHAR(3) PRIMARY KEY,
   name        TEXT NOT NULL,
   region      TEXT,
   flag_emoji  TEXT
 );
 
-CREATE TABLE country_stats (
+CREATE TABLE IF NOT EXISTS public.country_stats (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  country_code        VARCHAR(3) NOT NULL REFERENCES countries(code),
+  tenant_id           UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  country_code        VARCHAR(3) NOT NULL REFERENCES public.countries(code),
   snapshot_year       INT,
   outbound_students   INT,
   inbound_students    INT,
@@ -60,11 +62,11 @@ CREATE TABLE country_stats (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE partnerships (
+CREATE TABLE IF NOT EXISTS public.partnerships (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id           UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   university_name     TEXT NOT NULL,
-  country_code        VARCHAR(3) NOT NULL REFERENCES countries(code),
+  country_code        VARCHAR(3) NOT NULL REFERENCES public.countries(code),
   partnership_type    TEXT,
   status              TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('ACTIVE','PENDING','EXPIRING','EXPIRED')),
   start_date          DATE,
@@ -76,14 +78,14 @@ CREATE TABLE partnerships (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE programs (
+CREATE TABLE IF NOT EXISTS public.programs (
   id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id              UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  partnership_id         UUID REFERENCES partnerships(id) ON DELETE SET NULL,
+  tenant_id              UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  partnership_id         UUID REFERENCES public.partnerships(id) ON DELETE SET NULL,
   name                   TEXT NOT NULL,
   type                   TEXT NOT NULL CHECK (type IN ('SEMESTER_EXCHANGE','SUMMER_SCHOOL','JOINT_DEGREE','RESEARCH_FELLOWSHIP','INTERNSHIP')),
   partner_university     TEXT,
-  country_code           VARCHAR(3) REFERENCES countries(code),
+  country_code           VARCHAR(3) REFERENCES public.countries(code),
   seats                  INT,
   enrolled               INT,
   deadline               DATE,
@@ -94,14 +96,14 @@ CREATE TABLE programs (
   updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE students (
+CREATE TABLE IF NOT EXISTS public.students (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id          UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   full_name          TEXT NOT NULL,
   email              TEXT NOT NULL,
   home_university    TEXT,
   host_university    TEXT,
-  host_country_code  VARCHAR(3) REFERENCES countries(code),
+  host_country_code  VARCHAR(3) REFERENCES public.countries(code),
   program_name       TEXT,
   semester_label     TEXT,
   gpa                NUMERIC(3,2),
@@ -110,19 +112,19 @@ CREATE TABLE students (
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE program_students (
+CREATE TABLE IF NOT EXISTS public.program_students (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  program_id  UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
-  student_id  UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  program_id  UUID NOT NULL REFERENCES public.programs(id) ON DELETE CASCADE,
+  student_id  UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  tenant_id   UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (program_id, student_id)
 );
 
-CREATE TABLE column_definitions (
+CREATE TABLE IF NOT EXISTS public.column_definitions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id   UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   module      TEXT NOT NULL CHECK (module IN ('PROGRAM','PARTNERSHIP','EVENT','VISIT')),
   key_name    TEXT NOT NULL,
   label       TEXT NOT NULL,
@@ -133,9 +135,9 @@ CREATE TABLE column_definitions (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE field_definitions (
+CREATE TABLE IF NOT EXISTS public.field_definitions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id       UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   key_name        TEXT NOT NULL,
   label           TEXT NOT NULL,
   input_type      TEXT NOT NULL,
@@ -145,13 +147,13 @@ CREATE TABLE field_definitions (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS public.events (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id         UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   name              TEXT NOT NULL,
   type              TEXT NOT NULL CHECK (type IN ('FAIR','ORIENTATION','WORKSHOP','WEBINAR','INFO_SESSION')),
   event_date        DATE,
-  country_code      VARCHAR(3) REFERENCES countries(code),
+  country_code      VARCHAR(3) REFERENCES public.countries(code),
   location          TEXT,
   host_institution  TEXT,
   description       TEXT,
@@ -159,10 +161,10 @@ CREATE TABLE events (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE event_participants (
+CREATE TABLE IF NOT EXISTS public.event_participants (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id       UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  event_id       UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  tenant_id      UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   full_name      TEXT NOT NULL,
   email          TEXT,
   organization   TEXT,
@@ -171,9 +173,9 @@ CREATE TABLE event_participants (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE visits (
+CREATE TABLE IF NOT EXISTS public.visits (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id         UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   title             TEXT NOT NULL,
   type              TEXT NOT NULL CHECK (type IN ('DELEGATION','CAMPUS_VISIT','PARTNER_MEETING','AUDIT','CEREMONY')),
   status            TEXT NOT NULL DEFAULT 'PLANNED' CHECK (status IN ('PLANNED','CONFIRMED','COMPLETED','CANCELLED')),
@@ -185,10 +187,10 @@ CREATE TABLE visits (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE visit_participants (
+CREATE TABLE IF NOT EXISTS public.visit_participants (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  visit_id       UUID NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
-  tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  visit_id       UUID NOT NULL REFERENCES public.visits(id) ON DELETE CASCADE,
+  tenant_id      UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   full_name      TEXT NOT NULL,
   email          TEXT,
   organization   TEXT,
@@ -197,11 +199,11 @@ CREATE TABLE visit_participants (
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE documents (
+CREATE TABLE IF NOT EXISTS public.documents (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id          UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  program_id         UUID REFERENCES programs(id) ON DELETE SET NULL,
-  partnership_id     UUID REFERENCES partnerships(id) ON DELETE SET NULL,
+  tenant_id          UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  program_id         UUID REFERENCES public.programs(id) ON DELETE SET NULL,
+  partnership_id     UUID REFERENCES public.partnerships(id) ON DELETE SET NULL,
   original_filename  TEXT NOT NULL,
   stored_filename    TEXT NOT NULL,
   content_type       TEXT,
@@ -212,9 +214,9 @@ CREATE TABLE documents (
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE news_items (
+CREATE TABLE IF NOT EXISTS public.news_items (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id    UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   title        TEXT NOT NULL,
   category     TEXT NOT NULL CHECK (category IN ('MOBILITY','PARTNERSHIP','CAMPUS','SCHOLARSHIP','ANNOUNCEMENT')),
   publish_date DATE,
@@ -224,9 +226,9 @@ CREATE TABLE news_items (
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE dashboard_snapshots (
+CREATE TABLE IF NOT EXISTS public.dashboard_snapshots (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id           UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id           UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   snapshot_date       DATE NOT NULL,
   total_programs      INT,
   total_partnerships  INT,
@@ -238,20 +240,20 @@ CREATE TABLE dashboard_snapshots (
   UNIQUE (tenant_id, snapshot_date)
 );
 
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title        TEXT NOT NULL,
-  body         TEXT,
-  level        TEXT NOT NULL DEFAULT 'INFO' CHECK (level IN ('INFO','SUCCESS','WARNING','ERROR')),
-  unread       BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+  user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  body        TEXT,
+  level       TEXT NOT NULL DEFAULT 'INFO' CHECK (level IN ('INFO','SUCCESS','WARNING','ERROR')),
+  unread      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE tenant_settings (
+CREATE TABLE IF NOT EXISTS public.tenant_settings (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id       UUID NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id       UUID NOT NULL UNIQUE REFERENCES public.tenants(id) ON DELETE CASCADE,
   timezone        TEXT NOT NULL DEFAULT 'Asia/Calcutta',
   currency        TEXT NOT NULL DEFAULT 'INR',
   locale          TEXT NOT NULL DEFAULT 'en-IN',
@@ -261,19 +263,322 @@ CREATE TABLE tenant_settings (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_users_tenant_id ON users(tenant_id);
-CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
-CREATE INDEX idx_country_stats_tenant_id ON country_stats(tenant_id);
-CREATE INDEX idx_programs_tenant_id ON programs(tenant_id);
-CREATE INDEX idx_students_tenant_id ON students(tenant_id);
-CREATE INDEX idx_program_students_program_id ON program_students(program_id);
-CREATE INDEX idx_program_students_student_id ON program_students(student_id);
-CREATE INDEX idx_column_definitions_tenant_module_sort ON column_definitions(tenant_id, module, sort_order);
-CREATE INDEX idx_field_definitions_tenant_sort ON field_definitions(tenant_id, sort_order);
-CREATE INDEX idx_events_tenant_id ON events(tenant_id);
-CREATE INDEX idx_event_participants_event_id ON event_participants(event_id);
-CREATE INDEX idx_visits_tenant_id ON visits(tenant_id);
-CREATE INDEX idx_visit_participants_visit_id ON visit_participants(visit_id);
-CREATE INDEX idx_documents_tenant_id ON documents(tenant_id);
-CREATE INDEX idx_news_items_tenant_id ON news_items(tenant_id);
-CREATE INDEX idx_notifications_user_id_unread ON notifications(user_id, unread);
+CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON public.users(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON public.refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_country_stats_tenant_id ON public.country_stats(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_programs_tenant_id ON public.programs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_students_tenant_id ON public.students(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_program_students_program_id ON public.program_students(program_id);
+CREATE INDEX IF NOT EXISTS idx_program_students_student_id ON public.program_students(student_id);
+CREATE INDEX IF NOT EXISTS idx_column_definitions_tenant_module_sort ON public.column_definitions(tenant_id, module, sort_order);
+CREATE INDEX IF NOT EXISTS idx_field_definitions_tenant_sort ON public.field_definitions(tenant_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_events_tenant_id ON public.events(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_event_participants_event_id ON public.event_participants(event_id);
+CREATE INDEX IF NOT EXISTS idx_visits_tenant_id ON public.visits(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_visit_participants_visit_id ON public.visit_participants(visit_id);
+CREATE INDEX IF NOT EXISTS idx_documents_tenant_id ON public.documents(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_news_items_tenant_id ON public.news_items(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id_unread ON public.notifications(user_id, unread);
+
+DO $$
+DECLARE
+  v_tenant_id UUID;
+  v_user_id UUID;
+BEGIN
+  INSERT INTO public.tenants (id, name, code, active, created_at, updated_at)
+  VALUES (
+    '75138fb1-fad9-4322-9153-2d47ecae2daa',
+    'Nexus University',
+    'NEXUS-U',
+    true,
+    '2026-04-03 01:13:44.719102+05:30',
+    '2026-04-03 01:13:44.719102+05:30'
+  )
+  ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    active = EXCLUDED.active,
+    updated_at = EXCLUDED.updated_at;
+
+  SELECT id INTO v_tenant_id
+  FROM public.tenants
+  WHERE code = 'NEXUS-U'
+  LIMIT 1;
+
+  INSERT INTO public.countries (code, name, region, flag_emoji) VALUES
+    ('IN', 'India', 'Asia', '🇮🇳'),
+    ('DE', 'Germany', 'Europe', '🇩🇪'),
+    ('SG', 'Singapore', 'Asia', '🇸🇬'),
+    ('GB', 'United Kingdom', 'Europe', '🇬🇧'),
+    ('FR', 'France', 'Europe', '🇫🇷'),
+    ('JP', 'Japan', 'Asia', '🇯🇵'),
+    ('CH', 'Switzerland', 'Europe', '🇨🇭'),
+    ('US', 'United States', 'North America', '🇺🇸')
+  ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    region = EXCLUDED.region,
+    flag_emoji = EXCLUDED.flag_emoji;
+
+  INSERT INTO public.users (id, tenant_id, full_name, email, password_hash, role, active, created_at, updated_at)
+  VALUES (
+    '50e288e4-a337-404e-beb6-6f9448669d17',
+    v_tenant_id,
+    'Platform Admin',
+    'admin@nexus.edu',
+    '$2a$10$wtNUKjkRHr25ujyK5y8otelxRX9jVb.3YjDttKD630NUv5MbBLGYm',
+    'ADMIN',
+    true,
+    '2026-04-03 01:13:44.893529+05:30',
+    '2026-04-03 01:13:44.893529+05:30'
+  )
+  ON CONFLICT (email) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    full_name = EXCLUDED.full_name,
+    password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role,
+    active = EXCLUDED.active,
+    updated_at = EXCLUDED.updated_at;
+
+  SELECT id INTO v_user_id
+  FROM public.users
+  WHERE email = 'admin@nexus.edu'
+  LIMIT 1;
+
+  INSERT INTO public.tenant_settings (id, tenant_id, timezone, currency, locale, contact_email, branding_color, created_at, updated_at)
+  VALUES (
+    'bb8c5ff4-ae13-452a-9303-d2993390ca24',
+    v_tenant_id,
+    'Asia/Calcutta',
+    'INR',
+    'en-IN',
+    'mobility@nexus.edu',
+    '#0F766E',
+    '2026-04-03 01:13:44.775951+05:30',
+    '2026-04-03 01:13:44.775951+05:30'
+  )
+  ON CONFLICT (tenant_id) DO UPDATE SET
+    timezone = EXCLUDED.timezone,
+    currency = EXCLUDED.currency,
+    locale = EXCLUDED.locale,
+    contact_email = EXCLUDED.contact_email,
+    branding_color = EXCLUDED.branding_color,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.refresh_tokens (id, user_id, token, expires_at, revoked, created_at, updated_at)
+  VALUES (
+    'b1b9f854-87d0-431c-85b2-e5f35143f5e1',
+    v_user_id,
+    'd6a09c1f-a13a-45ad-9de3-a0384152b99b.2673b2e4-c91f-4eeb-aabd-218954418062',
+    '2026-04-14 22:53:04.213496+05:30',
+    false,
+    '2026-04-07 22:53:04.231225+05:30',
+    '2026-04-07 22:53:04.231225+05:30'
+  )
+  ON CONFLICT (token) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    expires_at = EXCLUDED.expires_at,
+    revoked = EXCLUDED.revoked,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.partnerships (id, tenant_id, university_name, country_code, partnership_type, status, start_date, expiry_date, mou_signed, renewal_alert_days, notes, created_at, updated_at) VALUES
+    ('40000000-0000-0000-0000-000000000001', v_tenant_id, 'TU Munich', 'DE', 'Academic Exchange', 'ACTIVE', '2024-01-01', '2028-12-31', true, 180, 'Flagship Germany partnership', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('40000000-0000-0000-0000-000000000002', v_tenant_id, 'National University of Singapore', 'SG', 'Semester Mobility', 'ACTIVE', '2023-06-01', '2027-05-31', true, 120, 'Strong student mobility interest', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('40000000-0000-0000-0000-000000000003', v_tenant_id, 'University of Leeds', 'GB', 'Research Collaboration', 'EXPIRING', '2022-01-01', '2026-12-31', true, 60, 'Needs renewal planning', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('bc238745-28b2-4cd9-adf8-c6564239ad16', v_tenant_id, 'Delhi University', 'IN', 'Academic Exchange', 'ACTIVE', '2025-01-07', '2026-04-07', false, NULL, NULL, '2026-04-07 23:48:37.209574+05:30', '2026-04-07 23:48:37.209574+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    university_name = EXCLUDED.university_name,
+    country_code = EXCLUDED.country_code,
+    partnership_type = EXCLUDED.partnership_type,
+    status = EXCLUDED.status,
+    start_date = EXCLUDED.start_date,
+    expiry_date = EXCLUDED.expiry_date,
+    mou_signed = EXCLUDED.mou_signed,
+    renewal_alert_days = EXCLUDED.renewal_alert_days,
+    notes = EXCLUDED.notes,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.programs (id, tenant_id, partnership_id, name, type, partner_university, country_code, seats, enrolled, deadline, duration_label, scholarship_available, description, created_at, updated_at) VALUES
+    ('50000000-0000-0000-0000-000000000001', v_tenant_id, '40000000-0000-0000-0000-000000000001', 'European Exchange Semester', 'SEMESTER_EXCHANGE', 'TU Munich', 'DE', 20, 12, '2026-05-15', '1 Semester', true, 'Undergraduate semester exchange', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('50000000-0000-0000-0000-000000000002', v_tenant_id, '40000000-0000-0000-0000-000000000002', 'Asia Mobility Track', 'SEMESTER_EXCHANGE', 'National University of Singapore', 'SG', 15, 9, '2026-06-01', '1 Semester', true, 'Mobility for business and engineering students', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('50000000-0000-0000-0000-000000000003', v_tenant_id, '40000000-0000-0000-0000-000000000003', 'Leeds Research Fellowship', 'RESEARCH_FELLOWSHIP', 'University of Leeds', 'GB', 8, 3, '2026-07-10', '3 Months', false, 'Short-term research fellowship', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    partnership_id = EXCLUDED.partnership_id,
+    name = EXCLUDED.name,
+    type = EXCLUDED.type,
+    partner_university = EXCLUDED.partner_university,
+    country_code = EXCLUDED.country_code,
+    seats = EXCLUDED.seats,
+    enrolled = EXCLUDED.enrolled,
+    deadline = EXCLUDED.deadline,
+    duration_label = EXCLUDED.duration_label,
+    scholarship_available = EXCLUDED.scholarship_available,
+    description = EXCLUDED.description,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.students (id, tenant_id, full_name, email, home_university, host_university, host_country_code, program_name, semester_label, gpa, status, created_at, updated_at) VALUES
+    ('60000000-0000-0000-0000-000000000001', v_tenant_id, 'Aarav Sharma', 'aarav.sharma@nexus.edu', 'Nexus University', 'TU Munich', 'DE', 'European Exchange Semester', 'Fall 2026', 3.84, 'Approved', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('60000000-0000-0000-0000-000000000002', v_tenant_id, 'Ishita Rao', 'ishita.rao@nexus.edu', 'Nexus University', 'National University of Singapore', 'SG', 'Asia Mobility Track', 'Fall 2026', 3.76, 'On Exchange', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('60000000-0000-0000-0000-000000000003', v_tenant_id, 'Rohan Mehta', 'rohan.mehta@nexus.edu', 'Nexus University', 'University of Leeds', 'GB', 'Leeds Research Fellowship', 'Summer 2026', 3.67, 'Pending', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    home_university = EXCLUDED.home_university,
+    host_university = EXCLUDED.host_university,
+    host_country_code = EXCLUDED.host_country_code,
+    program_name = EXCLUDED.program_name,
+    semester_label = EXCLUDED.semester_label,
+    gpa = EXCLUDED.gpa,
+    status = EXCLUDED.status,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.program_students (id, program_id, student_id, tenant_id, created_at, updated_at) VALUES
+    ('70000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000001', v_tenant_id, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('70000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000002', '60000000-0000-0000-0000-000000000002', v_tenant_id, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('70000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000003', '60000000-0000-0000-0000-000000000003', v_tenant_id, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (program_id, student_id) DO NOTHING;
+
+  INSERT INTO public.events (id, tenant_id, name, type, event_date, country_code, location, host_institution, description, created_at, updated_at) VALUES
+    ('90000000-0000-0000-0000-000000000001', v_tenant_id, 'Global Mobility Fair 2026', 'FAIR', '2026-08-12', 'IN', 'Main Campus Auditorium', 'Nexus University', 'Annual outbound mobility fair', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('90000000-0000-0000-0000-000000000002', v_tenant_id, 'Germany Orientation Webinar', 'WEBINAR', '2026-07-01', 'DE', 'Online', 'International Office', 'Orientation for Germany-bound students', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    name = EXCLUDED.name,
+    type = EXCLUDED.type,
+    event_date = EXCLUDED.event_date,
+    country_code = EXCLUDED.country_code,
+    location = EXCLUDED.location,
+    host_institution = EXCLUDED.host_institution,
+    description = EXCLUDED.description,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.event_participants (id, event_id, tenant_id, full_name, email, organization, role, created_at, updated_at) VALUES
+    ('91000000-0000-0000-0000-000000000001', '90000000-0000-0000-0000-000000000001', v_tenant_id, 'Aarav Sharma', 'aarav.sharma@nexus.edu', 'Nexus University', 'Student', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('91000000-0000-0000-0000-000000000002', '90000000-0000-0000-0000-000000000001', v_tenant_id, 'Ishita Rao', 'ishita.rao@nexus.edu', 'Nexus University', 'Student', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    event_id = EXCLUDED.event_id,
+    tenant_id = EXCLUDED.tenant_id,
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    organization = EXCLUDED.organization,
+    role = EXCLUDED.role,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.visits (id, tenant_id, title, type, status, visit_date, location, institution_name, agenda, created_at, updated_at) VALUES
+    ('92000000-0000-0000-0000-000000000001', v_tenant_id, 'TU Munich Delegation Visit', 'DELEGATION', 'CONFIRMED', '2026-09-10', 'Munich', 'TU Munich', 'MoU renewal and lab visit', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('92000000-0000-0000-0000-000000000002', v_tenant_id, 'NUS Partner Meeting', 'PARTNER_MEETING', 'PLANNED', '2026-10-05', 'Singapore', 'National University of Singapore', 'Mobility quota review', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    title = EXCLUDED.title,
+    type = EXCLUDED.type,
+    status = EXCLUDED.status,
+    visit_date = EXCLUDED.visit_date,
+    location = EXCLUDED.location,
+    institution_name = EXCLUDED.institution_name,
+    agenda = EXCLUDED.agenda,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.visit_participants (id, visit_id, tenant_id, full_name, email, organization, role, created_at, updated_at) VALUES
+    ('93000000-0000-0000-0000-000000000001', '92000000-0000-0000-0000-000000000001', v_tenant_id, 'Platform Admin', 'admin@nexus.edu', 'Nexus University', 'Admin', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    visit_id = EXCLUDED.visit_id,
+    tenant_id = EXCLUDED.tenant_id,
+    full_name = EXCLUDED.full_name,
+    email = EXCLUDED.email,
+    organization = EXCLUDED.organization,
+    role = EXCLUDED.role,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.documents (id, tenant_id, program_id, partnership_id, original_filename, stored_filename, content_type, size_bytes, type, storage_path, created_at, updated_at) VALUES
+    ('94000000-0000-0000-0000-000000000001', v_tenant_id, NULL, '40000000-0000-0000-0000-000000000001', 'tu-munich-mou.pdf', '94000000-0000-0000-0000-000000000001.pdf', 'application/pdf', 245760, 'MOU', './storage/94000000-0000-0000-0000-000000000001.pdf', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('94000000-0000-0000-0000-000000000002', v_tenant_id, '50000000-0000-0000-0000-000000000001', NULL, 'exchange-agreement.pdf', '94000000-0000-0000-0000-000000000002.pdf', 'application/pdf', 184320, 'AGREEMENT', './storage/94000000-0000-0000-0000-000000000002.pdf', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    program_id = EXCLUDED.program_id,
+    partnership_id = EXCLUDED.partnership_id,
+    original_filename = EXCLUDED.original_filename,
+    stored_filename = EXCLUDED.stored_filename,
+    content_type = EXCLUDED.content_type,
+    size_bytes = EXCLUDED.size_bytes,
+    type = EXCLUDED.type,
+    storage_path = EXCLUDED.storage_path,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.news_items (id, tenant_id, title, category, publish_date, source_url, summary, created_at, updated_at) VALUES
+    ('95000000-0000-0000-0000-000000000001', v_tenant_id, 'Mobility scholarship window opens', 'SCHOLARSHIP', '2026-04-01', NULL, 'Applications are now open for the 2026 mobility scholarship cycle.', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('95000000-0000-0000-0000-000000000002', v_tenant_id, 'Leeds delegation scheduled', 'PARTNERSHIP', '2026-04-05', NULL, 'University of Leeds visit confirmed for September 2026.', '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    title = EXCLUDED.title,
+    category = EXCLUDED.category,
+    publish_date = EXCLUDED.publish_date,
+    source_url = EXCLUDED.source_url,
+    summary = EXCLUDED.summary,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.notifications (id, user_id, title, body, level, unread, created_at, updated_at) VALUES
+    ('97000000-0000-0000-0000-000000000001', v_user_id, 'Seed data ready', 'Demo records have been inserted into the database.', 'INFO', true, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('97000000-0000-0000-0000-000000000002', v_user_id, 'Partnership renewal due', 'University of Leeds partnership expires this year.', 'WARNING', true, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    title = EXCLUDED.title,
+    body = EXCLUDED.body,
+    level = EXCLUDED.level,
+    unread = EXCLUDED.unread,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.country_stats (id, tenant_id, country_code, snapshot_year, outbound_students, inbound_students, partnership_count, created_at, updated_at) VALUES
+    ('30000000-0000-0000-0000-000000000001', v_tenant_id, 'DE', 2026, 42, 17, 4, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('30000000-0000-0000-0000-000000000002', v_tenant_id, 'SG', 2026, 28, 11, 3, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('30000000-0000-0000-0000-000000000003', v_tenant_id, 'GB', 2026, 35, 9, 5, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    country_code = EXCLUDED.country_code,
+    snapshot_year = EXCLUDED.snapshot_year,
+    outbound_students = EXCLUDED.outbound_students,
+    inbound_students = EXCLUDED.inbound_students,
+    partnership_count = EXCLUDED.partnership_count,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.dashboard_snapshots (id, tenant_id, snapshot_date, total_programs, total_partnerships, total_events, total_visits, total_students, created_at, updated_at) VALUES
+    ('869b504a-b50d-4c38-8d29-f994732cf728', v_tenant_id, '2026-04-06', 0, 0, 0, 0, 0, '2026-04-06 22:44:57.105955+05:30', '2026-04-06 22:44:57.105955+05:30'),
+    ('edbe9293-7c81-4e63-9c4b-b930b4cd3d6e', v_tenant_id, '2026-04-07', 0, 0, 0, 0, 0, '2026-04-07 23:03:36.465151+05:30', '2026-04-07 23:03:36.465151+05:30')
+  ON CONFLICT (tenant_id, snapshot_date) DO UPDATE SET
+    total_programs = EXCLUDED.total_programs,
+    total_partnerships = EXCLUDED.total_partnerships,
+    total_events = EXCLUDED.total_events,
+    total_visits = EXCLUDED.total_visits,
+    total_students = EXCLUDED.total_students,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.column_definitions (id, tenant_id, module, key_name, label, value_type, sort_order, visible, created_at, updated_at) VALUES
+    ('80000000-0000-0000-0000-000000000001', v_tenant_id, 'PROGRAM', 'name', 'Program Name', 'TEXT', 1, true, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('80000000-0000-0000-0000-000000000002', v_tenant_id, 'PROGRAM', 'partnerUniversity', 'Partner University', 'TEXT', 2, true, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('80000000-0000-0000-0000-000000000003', v_tenant_id, 'PARTNERSHIP', 'universityName', 'Partner University', 'TEXT', 1, true, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('80000000-0000-0000-0000-000000000004', v_tenant_id, 'PARTNERSHIP', 'countryCode', 'Country', 'TEXT', 2, true, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    module = EXCLUDED.module,
+    key_name = EXCLUDED.key_name,
+    label = EXCLUDED.label,
+    value_type = EXCLUDED.value_type,
+    sort_order = EXCLUDED.sort_order,
+    visible = EXCLUDED.visible,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO public.field_definitions (id, tenant_id, key_name, label, input_type, required_field, sort_order, created_at, updated_at) VALUES
+    ('81000000-0000-0000-0000-000000000001', v_tenant_id, 'student_name', 'Student Name', 'Text', true, 1, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('81000000-0000-0000-0000-000000000002', v_tenant_id, 'passport_no', 'Passport No', 'Text', false, 2, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30'),
+    ('81000000-0000-0000-0000-000000000003', v_tenant_id, 'visa_status', 'Visa Status', 'Dropdown', true, 3, '2026-04-07 23:47:12.67192+05:30', '2026-04-07 23:47:12.67192+05:30')
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = EXCLUDED.tenant_id,
+    key_name = EXCLUDED.key_name,
+    label = EXCLUDED.label,
+    input_type = EXCLUDED.input_type,
+    required_field = EXCLUDED.required_field,
+    sort_order = EXCLUDED.sort_order,
+    updated_at = EXCLUDED.updated_at;
+END $$;
+
+COMMIT;
