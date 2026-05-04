@@ -31,6 +31,9 @@ import java.time.LocalDate;
 @Component
 public class DataSeeder implements CommandLineRunner {
 
+    private static final String DEMO_EMAIL = "demo@nexus.edu";
+    private static final String DEMO_PASSWORD = "Demo@123";
+
     private final TenantRepository tenantRepository;
     private final TenantSettingsRepository tenantSettingsRepository;
     private final UserAccountRepository userAccountRepository;
@@ -71,7 +74,9 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (!tenantRepository.findAll().isEmpty()) {
+        Tenant existingTenant = tenantRepository.findByCode("NEXUS-U").orElse(null);
+        if (existingTenant != null) {
+            ensureDemoUser(existingTenant.getId());
             return;
         }
 
@@ -93,6 +98,18 @@ public class DataSeeder implements CommandLineRunner {
         admin.setRole(DomainEnums.UserRole.ADMIN);
         userAccountRepository.save(admin);
 
+        UserAccount demoUser = new UserAccount();
+        demoUser.setTenantId(tenant.getId());
+        demoUser.setFullName("Client Demo");
+        demoUser.setEmail(DEMO_EMAIL);
+        demoUser.setPasswordHash(passwordEncoder.encode(DEMO_PASSWORD));
+        demoUser.setRole(DomainEnums.UserRole.ADMIN);
+        userAccountRepository.save(demoUser);
+
+        seedCountry("IN", "India", "Asia", "India");
+        seedCountry("DE", "Germany", "Europe", "Germany");
+        seedCountry("SG", "Singapore", "Asia", "Singapore");
+        seedCountry("GB", "United Kingdom", "Europe", "United Kingdom");
 
         Student student = new Student();
         student.setTenantId(tenant.getId());
@@ -132,11 +149,6 @@ public class DataSeeder implements CommandLineRunner {
         program.setScholarshipAvailable(true);
         programRepository.save(program);
 
-        seedCountry("IN", "India", "Asia", "🇮🇳");
-        seedCountry("DE", "Germany", "Europe", "🇩🇪");
-        seedCountry("SG", "Singapore", "Asia", "🇸🇬");
-        seedCountry("GB", "United Kingdom", "Europe", "🇬🇧");
-
         CountryStat stat = new CountryStat();
         stat.setTenantId(tenant.getId());
         stat.setCountryCode("DE");
@@ -155,10 +167,29 @@ public class DataSeeder implements CommandLineRunner {
         newsItemRepository.save(news);
 
         Notification notification = new Notification();
-        notification.setUserId(admin.getId());
+        notification.setUserId(demoUser.getId());
         notification.setTitle("Seed data ready");
-        notification.setBody("Your demo tenant and initial admin account have been created.");
+        notification.setBody("Use demo@nexus.edu / Demo@123 for the client showcase.");
         notificationRepository.save(notification);
+    }
+
+    private void ensureDemoUser(java.util.UUID tenantId) {
+        userAccountRepository.findByEmail(DEMO_EMAIL).ifPresentOrElse(existingUser -> {
+            existingUser.setActive(true);
+            existingUser.setTenantId(tenantId);
+            existingUser.setFullName("Client Demo");
+            existingUser.setPasswordHash(passwordEncoder.encode(DEMO_PASSWORD));
+            existingUser.setRole(DomainEnums.UserRole.ADMIN);
+            userAccountRepository.save(existingUser);
+        }, () -> {
+            UserAccount demoUser = new UserAccount();
+            demoUser.setTenantId(tenantId);
+            demoUser.setFullName("Client Demo");
+            demoUser.setEmail(DEMO_EMAIL);
+            demoUser.setPasswordHash(passwordEncoder.encode(DEMO_PASSWORD));
+            demoUser.setRole(DomainEnums.UserRole.ADMIN);
+            userAccountRepository.save(demoUser);
+        });
     }
 
     private void seedCountry(String code, String name, String region, String flag) {
