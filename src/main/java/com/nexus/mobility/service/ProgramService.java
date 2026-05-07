@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -24,6 +25,13 @@ public class ProgramService {
     private final StudentRepository studentRepository;
     private final ProgramStudentRepository programStudentRepository;
 
+    private static final Map<String, String> COUNTRY_CODES = Map.of(
+            "Germany", "DE",
+            "India", "IN",
+            "United States", "US",
+            "France", "FR",
+            "Japan", "JP"
+    );
     public ProgramService(ProgramRepository programRepository, StudentRepository studentRepository, ProgramStudentRepository programStudentRepository) {
         this.programRepository = programRepository;
         this.studentRepository = studentRepository;
@@ -103,7 +111,7 @@ public class ProgramService {
         program.setName(request.name());
         program.setType(request.type());
         program.setPartnerUniversity(request.partnerUniversity());
-        program.setCountryCode(request.countryCode());
+        program.setCountryCode(COUNTRY_CODES.get(request.countryCode()));
         program.setSeats(request.seats());
         program.setEnrolled(request.enrolled());
         program.setDeadline(request.deadline());
