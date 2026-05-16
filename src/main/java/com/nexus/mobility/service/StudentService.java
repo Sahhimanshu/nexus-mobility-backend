@@ -10,12 +10,20 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class StudentService {
 
     private final StudentRepository studentRepository;
+    private static final Map<String, String> COUNTRY_CODES = Map.of(
+            "Germany", "DE",
+            "India", "IN",
+            "United States", "US",
+            "France", "FR",
+            "Japan", "JP"
+    );
 
     public StudentService(StudentRepository studentRepository) {
         this.studentRepository = studentRepository;
@@ -69,7 +77,7 @@ public class StudentService {
         student.setEmail(request.email().toLowerCase());
         student.setHomeUniversity(request.homeUniversity());
         student.setHostUniversity(request.hostUniversity());
-        student.setHostCountryCode(request.hostCountryCode());
+        student.setHostCountryCode(COUNTRY_CODES.get(request.hostCountryCode()));
         student.setProgramName(request.programName());
         student.setSemesterLabel(request.semesterLabel());
         student.setGpa(request.gpa());

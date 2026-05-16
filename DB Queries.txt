@@ -15,12 +15,22 @@ CREATE TABLE IF NOT EXISTS public.users (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id      UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   full_name      TEXT NOT NULL,
-  email          TEXT NOT NULL UNIQUE,
+  email          TEXT NOT NULL,
   password_hash  TEXT NOT NULL,
-  role           TEXT NOT NULL CHECK (role IN ('SUPER_ADMIN','ADMIN','COORDINATOR','STAFF','STUDENT')),
+  role           TEXT NOT NULL CHECK (
+    role IN (
+      'SUPER_ADMIN',
+      'ADMIN',
+      'COORDINATOR',
+      'STAFF',
+      'STUDENT'
+    )
+  ),
   active         BOOLEAN NOT NULL DEFAULT TRUE,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  UNIQUE (tenant_id, email)
 );
 
 CREATE TABLE IF NOT EXISTS public.refresh_tokens (
@@ -580,5 +590,21 @@ BEGIN
     sort_order = EXCLUDED.sort_order,
     updated_at = EXCLUDED.updated_at;
 END $$;
+
+-- remove old global unique constraint
+ALTER TABLE public.users
+DROP CONSTRAINT IF EXISTS users_email_key;
+
+-- add tenant scoped uniqueness
+ALTER TABLE public.users
+ADD CONSTRAINT uq_users_tenant_email
+UNIQUE (tenant_id, email);
+
+-- add indexes
+CREATE INDEX IF NOT EXISTS idx_users_tenant_email
+ON public.users(tenant_id, email);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_tenant_email_lower
+ON public.users(tenant_id, LOWER(email));
 
 COMMIT;

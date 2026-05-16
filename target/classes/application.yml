@@ -32,6 +32,6 @@ app:
     access-token-minutes: 1440
     refresh-token-days: 7
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,https://your-frontend.vercel.app}
   storage:
     path: ${STORAGE_PATH:./storage}
