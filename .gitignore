@@ -1,0 +1,3 @@
+/target/classes/com/nexus/mobility/dto/ApiError.class
+/target/classes/com/yourapp/exception/GlobalExceptionHandler.class
+/target/classes/com/nexus/mobility/exception/UnauthorizedException.class
