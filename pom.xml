@@ -11,10 +11,10 @@
     </parent>
 
     <groupId>com.nexus</groupId>
-    <artifactId>nexus-mobility-backend</artifactId>
+    <artifactId>Intersphere-backend</artifactId>
     <version>1.0.0</version>
-    <name>nexus-mobility-backend</name>
-    <description>Nexus Mobility backend API</description>
+    <name>Intersphere-backend</name>
+    <description>Intersphere backend API</description>
 
     <properties>
         <java.version>21</java.version>
