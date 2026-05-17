@@ -6,9 +6,9 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
 @ConfigurationPropertiesScan
-public class NexusMobilityApplication {
+public class IntersphereApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(NexusMobilityApplication.class, args);
+        SpringApplication.run(IntersphereApplication.class, args);
     }
 }
